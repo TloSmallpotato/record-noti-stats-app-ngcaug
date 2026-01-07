@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import * as Notifications from 'expo-notifications';
+import * as Haptics from 'expo-haptics';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -14,8 +15,21 @@ Notifications.setNotificationHandler({
   }),
 });
 
+const getRandomMessage = () => {
+  const messages = [
+    "Your notification is here!",
+    "Hello from Natively!",
+    "Notification delivered successfully!",
+    "This is a test notification",
+    "Scheduled notification working!",
+  ];
+  return messages[Math.floor(Math.random() * messages.length)];
+};
+
 export default function NotiScreen() {
   const [permissionGranted, setPermissionGranted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
     checkPermissions();
@@ -38,27 +52,34 @@ export default function NotiScreen() {
     }
   };
 
-  const scheduleDelayedNotification = async () => {
+  const triggerNotificationDelayed = async () => {
     try {
       if (!permissionGranted) {
         await requestPermissions();
         return;
       }
 
+      setIsLoading(true);
+      setStatusMessage('');
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Notification Sent! 🎉',
-          body: 'This notification was scheduled 3 seconds ago',
+          title: "Natively",
+          body: getRandomMessage(),
         },
         trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: 3,
         },
       });
 
-      Alert.alert('Success', 'Notification will appear in 3 seconds!');
+      setStatusMessage('Notification scheduled for 3 seconds!');
     } catch (error) {
       console.error('Error scheduling notification:', error);
-      Alert.alert('Error', 'Failed to schedule notification');
+      Alert.alert('Error', `Failed to schedule notification: ${error}`);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -69,12 +90,19 @@ export default function NotiScreen() {
         <Text style={styles.subtitle}>Test Expo Notifications</Text>
 
         <TouchableOpacity
-          style={styles.button}
-          onPress={scheduleDelayedNotification}
+          style={[styles.button, isLoading && styles.buttonDisabled]}
+          onPress={triggerNotificationDelayed}
           activeOpacity={0.7}
+          disabled={isLoading}
         >
-          <Text style={styles.buttonText}>Send in 3 Seconds</Text>
+          <Text style={styles.buttonText}>
+            {isLoading ? 'Scheduling...' : 'Send in 3 Seconds'}
+          </Text>
         </TouchableOpacity>
+
+        {statusMessage ? (
+          <Text style={styles.statusText}>{statusMessage}</Text>
+        ) : null}
 
         {!permissionGranted && (
           <Text style={styles.warningText}>
@@ -121,10 +149,19 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
   buttonText: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
+  },
+  statusText: {
+    marginTop: 24,
+    color: colors.text,
+    fontSize: 16,
+    textAlign: 'center',
   },
   warningText: {
     marginTop: 24,
