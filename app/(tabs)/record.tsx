@@ -52,14 +52,14 @@ export default function RecordScreen() {
       console.log('[Record] Loading videos from backend:', BACKEND_URL);
       
       const response = await apiGet<{
-        data: Array<{
+        data: {
           id: string;
           video_url: string;
           thumbnail_url?: string;
           duration: number;
           created_at: string;
           file_size: number;
-        }>;
+        }[];
         total: number;
         page: number;
         limit: number;
@@ -161,7 +161,7 @@ export default function RecordScreen() {
               const fileUri = Platform.OS === 'ios' ? asset.uri.replace('file://', '') : asset.uri;
               const fileName = `video_${Date.now()}.mov`;
               
-              // @ts-ignore - FormData append accepts file objects in React Native
+              // @ts-expect-error - FormData append accepts file objects in React Native
               formData.append('video', {
                 uri: fileUri,
                 type: 'video/quicktime',
