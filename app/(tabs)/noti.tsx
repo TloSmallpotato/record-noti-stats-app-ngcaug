@@ -6,7 +6,7 @@ import { colors } from '@/styles/commonStyles';
 import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
 
-// Configure notification handler
+// Configure notification handler for LOCAL notifications only
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -28,7 +28,8 @@ const getRandomMessage = () => {
 
 export default function NotiScreen() {
   const [permissionGranted, setPermissionGranted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingInstant, setIsLoadingInstant] = useState(false);
+  const [isLoadingDelayed, setIsLoadingDelayed] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
@@ -36,19 +37,59 @@ export default function NotiScreen() {
   }, []);
 
   const checkPermissions = async () => {
-    const { status } = await Notifications.getPermissionsAsync();
-    if (status === 'granted') {
-      setPermissionGranted(true);
-    } else {
-      requestPermissions();
+    try {
+      const { status } = await Notifications.getPermissionsAsync();
+      console.log('Current notification permission status:', status);
+      if (status === 'granted') {
+        setPermissionGranted(true);
+      } else {
+        requestPermissions();
+      }
+    } catch (error) {
+      console.error('Error checking permissions:', error);
     }
   };
 
   const requestPermissions = async () => {
-    const { status } = await Notifications.requestPermissionsAsync();
-    setPermissionGranted(status === 'granted');
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please enable notifications in settings');
+    try {
+      const { status } = await Notifications.requestPermissionsAsync();
+      console.log('Requested notification permission status:', status);
+      setPermissionGranted(status === 'granted');
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please enable notifications in settings to use this feature');
+      }
+    } catch (error) {
+      console.error('Error requesting permissions:', error);
+    }
+  };
+
+  const triggerNotificationInstant = async () => {
+    try {
+      if (!permissionGranted) {
+        await requestPermissions();
+        return;
+      }
+
+      setIsLoadingInstant(true);
+      setStatusMessage('');
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+      // Schedule LOCAL notification immediately (trigger: null)
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Natively",
+          body: getRandomMessage(),
+        },
+        trigger: null, // null = immediate local notification
+      });
+
+      console.log('Instant local notification scheduled');
+      setStatusMessage('Notification sent instantly!');
+    } catch (error) {
+      console.error('Error scheduling instant notification:', error);
+      Alert.alert('Error', `Failed to send notification: ${error}`);
+    } finally {
+      setIsLoadingInstant(false);
     }
   };
 
@@ -59,44 +100,56 @@ export default function NotiScreen() {
         return;
       }
 
-      setIsLoading(true);
+      setIsLoadingDelayed(true);
       setStatusMessage('');
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
+      // Schedule LOCAL notification with 5 second delay
       await Notifications.scheduleNotificationAsync({
         content: {
           title: "Natively",
           body: getRandomMessage(),
         },
         trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: 3,
+          seconds: 5, // Simple format for local notifications
         },
       });
 
-      setStatusMessage('Notification scheduled for 3 seconds!');
+      console.log('Delayed local notification scheduled for 5 seconds');
+      setStatusMessage('Notification scheduled for 5 seconds!');
     } catch (error) {
-      console.error('Error scheduling notification:', error);
+      console.error('Error scheduling delayed notification:', error);
       Alert.alert('Error', `Failed to schedule notification: ${error}`);
     } finally {
-      setIsLoading(false);
+      setIsLoadingDelayed(false);
     }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.content}>
-        <Text style={styles.title}>Push Notifications</Text>
-        <Text style={styles.subtitle}>Test Expo Notifications</Text>
+        <Text style={styles.title}>Local Notifications</Text>
+        <Text style={styles.subtitle}>Test Local Notifications (No Push)</Text>
 
         <TouchableOpacity
-          style={[styles.button, isLoading && styles.buttonDisabled]}
-          onPress={triggerNotificationDelayed}
+          style={[styles.button, styles.buttonPrimary, isLoadingInstant && styles.buttonDisabled]}
+          onPress={triggerNotificationInstant}
           activeOpacity={0.7}
-          disabled={isLoading}
+          disabled={isLoadingInstant}
         >
           <Text style={styles.buttonText}>
-            {isLoading ? 'Scheduling...' : 'Send in 3 Seconds'}
+            {isLoadingInstant ? 'Sending...' : 'Send Instantly'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, styles.buttonSecondary, isLoadingDelayed && styles.buttonDisabled]}
+          onPress={triggerNotificationDelayed}
+          activeOpacity={0.7}
+          disabled={isLoadingDelayed}
+        >
+          <Text style={styles.buttonText}>
+            {isLoadingDelayed ? 'Scheduling...' : 'Send in 5 Seconds'}
           </Text>
         </TouchableOpacity>
 
@@ -109,6 +162,15 @@ export default function NotiScreen() {
             ⚠️ Notification permissions not granted
           </Text>
         )}
+
+        <View style={styles.infoBox}>
+          <Text style={styles.infoTitle}>ℹ️ Local Notifications Only</Text>
+          <Text style={styles.infoText}>
+            This app uses LOCAL notifications that work completely offline.
+            {'\n\n'}
+            No push notification server, APNs keys, or backend required!
+          </Text>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -137,7 +199,6 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   button: {
-    backgroundColor: colors.primary,
     paddingHorizontal: 48,
     paddingVertical: 20,
     borderRadius: 16,
@@ -148,6 +209,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    marginBottom: 16,
+  },
+  buttonPrimary: {
+    backgroundColor: colors.primary,
+  },
+  buttonSecondary: {
+    backgroundColor: '#34C759',
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -168,5 +236,23 @@ const styles = StyleSheet.create({
     color: '#FF9500',
     fontSize: 14,
     textAlign: 'center',
+  },
+  infoBox: {
+    marginTop: 48,
+    padding: 20,
+    backgroundColor: colors.cardBackground || 'rgba(128, 128, 128, 0.1)',
+    borderRadius: 12,
+    maxWidth: 350,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  infoText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
 });
