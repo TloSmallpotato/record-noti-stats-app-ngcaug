@@ -1,4 +1,9 @@
 
+import React, { useState, useEffect, useRef } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { colors } from '@/styles/commonStyles';
 import {
   View,
   Text,
@@ -8,13 +13,8 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
-import React, { useState, useEffect, useRef } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { colors } from '@/styles/commonStyles';
 import { Video, ResizeMode } from 'expo-av';
 import * as MediaLibrary from 'expo-media-library';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface RecordedVideo {
   id: string;
@@ -24,33 +24,38 @@ interface RecordedVideo {
 }
 
 const GRID_ITEM_SIZE = (Dimensions.get('window').width - 48) / 3;
-const STORAGE_KEY = '@recordings';
+const STORAGE_KEY = '@recorded_videos';
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  content: {
-    flex: 1,
-    padding: 16,
-  },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 20,
+    padding: 20,
+    paddingBottom: 10,
   },
-  grid: {
-    flex: 1,
+  emptyText: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 40,
+    paddingHorizontal: 20,
   },
-  gridItem: {
+  gridContainer: {
+    padding: 12,
+    paddingBottom: 20,
+  },
+  videoItem: {
     width: GRID_ITEM_SIZE,
     height: GRID_ITEM_SIZE,
     margin: 4,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: colors.cardBackground,
+    backgroundColor: '#000',
   },
   video: {
     width: '100%',
@@ -60,41 +65,44 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: 'rgba(255, 0, 0, 0.8)',
+    backgroundColor: 'rgba(255, 59, 48, 0.9)',
     borderRadius: 12,
     width: 24,
     height: 24,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   deleteText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
+  buttonContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+    paddingBottom: 120, // Increased padding to clear bottom nav bar
+    paddingTop: 20,
+    backgroundColor: colors.background,
+  },
   recordButton: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 40,
-    paddingVertical: 20,
+    paddingVertical: 18,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 16,
+    justifyContent: 'center',
   },
   recordButtonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
   },
-  emptyText: {
-    color: colors.textSecondary,
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 40,
-  },
-  camera: {
+  cameraContainer: {
     flex: 1,
   },
-  cameraContainer: {
+  camera: {
     flex: 1,
   },
   cameraControls: {
@@ -102,34 +110,45 @@ const styles = StyleSheet.create({
     bottom: 40,
     left: 0,
     right: 0,
-    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 40,
   },
-  stopButton: {
-    backgroundColor: 'red',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
+  cameraButton: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#fff',
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordingButton: {
+    backgroundColor: '#ff3b30',
+  },
+  cameraButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 8,
+    color: '#fff',
   },
 });
 
 export default function RecordScreen() {
   const [permission, requestPermission] = useCameraPermissions();
-  const [recordings, setRecordings] = useState<RecordedVideo[]>([]);
+  const [videos, setVideos] = useState<RecordedVideo[]>([]);
   const [isRecording, setIsRecording] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const cameraRef = useRef<CameraView>(null);
 
   useEffect(() => {
     loadVideos();
-    requestPermissions();
   }, []);
 
   const loadVideos = async () => {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
-        setRecordings(JSON.parse(stored));
+        setVideos(JSON.parse(stored));
       }
     } catch (error) {
       console.error('Failed to load videos:', error);
@@ -145,40 +164,60 @@ export default function RecordScreen() {
   };
 
   const requestPermissions = async () => {
-    await requestPermission();
-    await MediaLibrary.requestPermissionsAsync();
+    const cameraStatus = await requestPermission();
+    const mediaStatus = await MediaLibrary.requestPermissionsAsync();
+    
+    return cameraStatus.granted && mediaStatus.granted;
   };
 
   const handleRecord = async () => {
-    if (!permission?.granted) {
-      await requestPermissions();
+    const hasPermissions = await requestPermissions();
+    
+    if (!hasPermissions) {
+      Alert.alert(
+        'Permissions Required',
+        'Camera and media library permissions are required to record videos.'
+      );
       return;
     }
 
-    if (isRecording) {
-      // Stop recording
-      if (cameraRef.current) {
-        try {
-          const video = await cameraRef.current.stopRecording();
-          if (video) {
-            const newRecording: RecordedVideo = {
-              id: Date.now().toString(),
-              uri: video.uri,
-              duration: 0,
-              createdAt: Date.now(),
-            };
-            const updated = [newRecording, ...recordings];
-            setRecordings(updated);
-            await saveVideos(updated);
-          }
-        } catch (error) {
-          console.error('Failed to stop recording:', error);
+    setShowCamera(true);
+  };
+
+  const startRecording = async () => {
+    if (cameraRef.current && !isRecording) {
+      try {
+        setIsRecording(true);
+        const video = await cameraRef.current.recordAsync();
+        
+        if (video) {
+          // Save to media library
+          const asset = await MediaLibrary.createAssetAsync(video.uri);
+          
+          const newVideo: RecordedVideo = {
+            id: Date.now().toString(),
+            uri: asset.uri,
+            duration: 0,
+            createdAt: Date.now(),
+          };
+
+          const updatedVideos = [newVideo, ...videos];
+          setVideos(updatedVideos);
+          await saveVideos(updatedVideos);
         }
+      } catch (error) {
+        console.error('Recording failed:', error);
+        Alert.alert('Error', 'Failed to record video');
+      } finally {
+        setIsRecording(false);
+        setShowCamera(false);
       }
-      setIsRecording(false);
-    } else {
-      // Start recording
-      setIsRecording(true);
+    }
+  };
+
+  const stopRecording = () => {
+    if (cameraRef.current && isRecording) {
+      cameraRef.current.stopRecording();
     }
   };
 
@@ -192,9 +231,9 @@ export default function RecordScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const updated = recordings.filter((v) => v.id !== videoId);
-            setRecordings(updated);
-            await saveVideos(updated);
+            const updatedVideos = videos.filter((v) => v.id !== videoId);
+            setVideos(updatedVideos);
+            await saveVideos(updatedVideos);
           },
         },
       ]
@@ -202,13 +241,13 @@ export default function RecordScreen() {
   };
 
   const renderVideoItem = ({ item }: { item: RecordedVideo }) => (
-    <View style={styles.gridItem}>
+    <View style={styles.videoItem}>
       <Video
         source={{ uri: item.uri }}
         style={styles.video}
         resizeMode={ResizeMode.COVER}
         shouldPlay={false}
-        useNativeControls
+        isLooping={false}
       />
       <TouchableOpacity
         style={styles.deleteButton}
@@ -219,46 +258,63 @@ export default function RecordScreen() {
     </View>
   );
 
-  if (isRecording) {
+  if (showCamera) {
     return (
       <View style={styles.cameraContainer}>
         <CameraView
           ref={cameraRef}
           style={styles.camera}
           mode="video"
-          onCameraReady={() => {
-            cameraRef.current?.recordAsync();
-          }}
-        />
-        <View style={styles.cameraControls}>
-          <TouchableOpacity style={styles.stopButton} onPress={handleRecord}>
-            <Text style={{ color: '#fff', fontSize: 16 }}>STOP</Text>
-          </TouchableOpacity>
-        </View>
+          facing="back"
+        >
+          <View style={styles.cameraControls}>
+            <TouchableOpacity
+              style={styles.cameraButton}
+              onPress={() => setShowCamera(false)}
+            >
+              <Text style={styles.cameraButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.cameraButton, isRecording && styles.recordingButton]}
+              onPress={isRecording ? stopRecording : startRecording}
+            >
+              <Text style={styles.cameraButtonText}>
+                {isRecording ? 'Stop' : 'Record'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </CameraView>
       </View>
     );
   }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.content}>
-        <Text style={styles.title}>Record</Text>
-        
+      <Text style={styles.title}>Record</Text>
+      
+      {videos.length === 0 ? (
+        <Text style={styles.emptyText}>
+          No recordings yet. Tap the button below to start!
+        </Text>
+      ) : (
         <FlatList
-          data={recordings}
+          data={videos}
           renderItem={renderVideoItem}
           keyExtractor={(item) => item.id}
           numColumns={3}
-          style={styles.grid}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>No recordings yet. Tap the button below to start!</Text>
-          }
+          contentContainerStyle={styles.gridContainer}
+          showsVerticalScrollIndicator={false}
         />
+      )}
 
-        <TouchableOpacity style={styles.recordButton} onPress={handleRecord}>
-          <Text style={styles.recordButtonText}>
-            {isRecording ? 'Stop Recording' : 'Start Recording'}
-          </Text>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={styles.recordButton}
+          onPress={handleRecord}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.recordButtonText}>Start Recording</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

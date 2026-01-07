@@ -1,99 +1,81 @@
 
-import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
-import { View, Text, StyleSheet, RefreshControl, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
-const STORAGE_KEY = '@recordings';
+const STORAGE_KEY = '@recorded_videos';
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 20,
   },
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: 'bold',
     color: colors.text,
     marginBottom: 40,
   },
   countContainer: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 20,
-    padding: 40,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    justifyContent: 'center',
+    flex: 1,
   },
   count: {
-    fontSize: 72,
+    fontSize: 120,
     fontWeight: 'bold',
     color: colors.primary,
   },
   label: {
-    fontSize: 18,
+    fontSize: 24,
     color: colors.textSecondary,
-    marginTop: 10,
+    marginTop: 20,
   },
 });
 
 export default function StatsScreen() {
-  const [count, setCount] = useState(0);
-  const [refreshing, setRefreshing] = useState(false);
+  const [recordingCount, setRecordingCount] = useState(0);
 
-  useEffect(() => {
-    loadStats();
-    
-    // Poll for updates every 2 seconds
-    const interval = setInterval(loadStats, 2000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadStats = async () => {
+  const loadCount = async () => {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
-        const recordings = JSON.parse(stored);
-        setCount(recordings.length);
+        const videos = JSON.parse(stored);
+        setRecordingCount(videos.length);
       } else {
-        setCount(0);
+        setRecordingCount(0);
       }
     } catch (error) {
-      console.error('Failed to load stats:', error);
+      console.error('Failed to load count:', error);
+      setRecordingCount(0);
     }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadStats();
-    setRefreshing(false);
-  };
+  useFocusEffect(
+    React.useCallback(() => {
+      loadCount();
+      
+      // Set up interval to check for updates
+      const interval = setInterval(loadCount, 1000);
+      
+      return () => clearInterval(interval);
+    }, [])
+  );
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        <Text style={styles.title}>Statistics</Text>
-        
-        <View style={styles.countContainer}>
-          <Text style={styles.count}>{count}</Text>
-          <Text style={styles.label}>Total Recordings</Text>
-        </View>
-      </ScrollView>
+      <Text style={styles.title}>Stats</Text>
+      
+      <View style={styles.countContainer}>
+        <Text style={styles.count}>{recordingCount}</Text>
+        <Text style={styles.label}>
+          {recordingCount === 1 ? 'Recording' : 'Recordings'}
+        </Text>
+      </View>
     </SafeAreaView>
   );
 }
