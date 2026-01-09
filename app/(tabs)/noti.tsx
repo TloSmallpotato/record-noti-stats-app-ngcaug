@@ -75,7 +75,7 @@ export default function NotiScreen() {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       // Schedule LOCAL notification immediately (trigger: null)
-      await Notifications.scheduleNotificationAsync({
+      const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
           title: "Natively",
           body: getRandomMessage(),
@@ -83,7 +83,7 @@ export default function NotiScreen() {
         trigger: null, // null = immediate local notification
       });
 
-      console.log('Instant local notification scheduled');
+      console.log('Instant local notification scheduled with ID:', notificationId);
       setStatusMessage('Notification sent instantly!');
     } catch (error) {
       console.error('Error scheduling instant notification:', error);
@@ -105,18 +105,26 @@ export default function NotiScreen() {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       // Schedule LOCAL notification with 5 second delay
-      await Notifications.scheduleNotificationAsync({
+      // Using explicit TimeIntervalTriggerInput format
+      const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
           title: "Natively",
           body: getRandomMessage(),
         },
         trigger: {
-          seconds: 5, // Simple format for local notifications
+          seconds: 5,
+          repeats: false, // Explicitly set to false to ensure it only fires once
         },
       });
 
-      console.log('Delayed local notification scheduled for 5 seconds');
+      console.log('Delayed local notification scheduled with ID:', notificationId);
+      console.log('Notification will appear in 5 seconds');
       setStatusMessage('Notification scheduled for 5 seconds!');
+      
+      // Update status message after 5 seconds to confirm
+      setTimeout(() => {
+        setStatusMessage('Notification should have appeared!');
+      }, 5500);
     } catch (error) {
       console.error('Error scheduling delayed notification:', error);
       Alert.alert('Error', `Failed to schedule notification: ${error}`);

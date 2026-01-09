@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Natively",
-    "slug": "Natively",
+    "name": "Record Noti Stats",
+    "slug": "Record Noti Stats",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/natively-dark.png",
@@ -54,5 +54,6 @@
         "projectId": "ee69426b-4990-42df-8f07-26b49c70e219"
       }
     }
-  }
+  },
+  "scheme": "Record Noti Stats"
 }
