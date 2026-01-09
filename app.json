@@ -26,7 +26,7 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.kopito.Natively"
+      "package": "com.kopito.natively"
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
@@ -35,7 +35,15 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/natively-dark.png",
+          "color": "#ffffff",
+          "sounds": []
+        }
+      ]
     ],
     "scheme": "natively",
     "experiments": {
