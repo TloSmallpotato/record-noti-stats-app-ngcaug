@@ -1,7 +1,8 @@
+
 {
   "expo": {
-    "name": "Record Noti Stats",
-    "slug": "Record Noti Stats",
+    "name": "Natively",
+    "slug": "Natively",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/natively-dark.png",
@@ -34,26 +35,14 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/natively-dark.png",
-          "color": "#ffffff",
-          "sounds": []
-        }
-      ]
+      "expo-web-browser"
     ],
     "scheme": "natively",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "ee69426b-4990-42df-8f07-26b49c70e219"
-      }
+      "router": {}
     }
-  },
-  "scheme": "Record Noti Stats"
+  }
 }
